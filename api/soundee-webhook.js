@@ -1,4 +1,3 @@
-api/soundee-webhook.js
 export default async function handler(req, res) {
   // Enable CORS for Soundee
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -43,7 +42,6 @@ async function sendToFacebookCAPI(saleData, req) {
   const pixelId = process.env.FACEBOOK_PIXEL_ID || '104080037200303';
   const accessToken = process.env.FACEBOOK_ACCESS_TOKEN || 'EAATQhO4Sf7ABOx5nRnckFq0ddjANzaffgU8YhkOZA1oICH5RXu1gZC8oNPfksgTSPzAmoVtP6dVllVd8gztWerV3XZBgtkaIW196d4rm5ZCPVodittPK7rA1vSr9UAoIKOkgnYYuUe9IHWWuCQJZCamoJLz0RriLZCjroYMJ2kmVT4SxfE1HVTMZBi8dULvQAZDZD';
   
-  // Map Soundee sale data to Facebook Conversions API format
   const eventData = {
     data: [{
       event_name: 'Purchase',
@@ -52,41 +50,19 @@ async function sendToFacebookCAPI(saleData, req) {
       event_source_url: 'https://koficooks.com',
       event_id: saleData.id || saleData.transaction_id || saleData.order_id || `sale_${Date.now( )}`,
       user_data: {
-        // Hash customer email if provided
-        em: saleData.customer_email || saleData.email ? 
-            [hashSHA256(saleData.customer_email || saleData.email)] : undefined,
-        // Hash customer phone if provided  
-        ph: saleData.customer_phone || saleData.phone ? 
-            [hashSHA256(saleData.customer_phone || saleData.phone)] : undefined,
-        // Hash customer name if provided
-        fn: saleData.customer_first_name || saleData.first_name ? 
-            [hashSHA256(saleData.customer_first_name || saleData.first_name)] : undefined,
-        ln: saleData.customer_last_name || saleData.last_name ? 
-            [hashSHA256(saleData.customer_last_name || saleData.last_name)] : undefined,
-        // IP and User Agent for better matching
-        client_ip_address: saleData.ip_address || req.headers['x-forwarded-for'] || req.connection.remoteAddress,
-        client_user_agent: saleData.user_agent || req.headers['user-agent']
+        client_ip_address: req.headers['x-forwarded-for'] || req.connection?.remoteAddress,
+        client_user_agent: req.headers['user-agent']
       },
       custom_data: {
-        // Purchase value and currency
         value: parseFloat(saleData.amount || saleData.total || saleData.price || 0),
         currency: saleData.currency || 'USD',
         content_type: 'product',
         content_category: 'beats',
-        // Beat/product information
         content_ids: [saleData.product_id || saleData.beat_id || saleData.item_id || 'unknown_beat'],
         content_name: saleData.product_name || saleData.beat_name || saleData.title || 'Beat Purchase'
       }
     }]
   };
-
-  // Remove undefined values to clean up the payload
-  const userData = eventData.data[0].user_data;
-  Object.keys(userData).forEach(key => {
-    if (userData[key] === undefined) {
-      delete userData[key];
-    }
-  });
 
   console.log('📤 Sending to Facebook:', JSON.stringify(eventData, null, 2));
 
@@ -108,15 +84,4 @@ async function sendToFacebookCAPI(saleData, req) {
   }
 
   return await response.json();
-}
-
-// SHA256 hashing function for customer data
-function hashSHA256(data) {
-  if (!data) return null;
-  
-  const crypto = require('crypto');
-  return crypto
-    .createHash('sha256')
-    .update(data.toString().toLowerCase().trim())
-    .digest('hex');
 }
